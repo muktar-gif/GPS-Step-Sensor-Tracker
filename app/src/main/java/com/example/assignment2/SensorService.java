@@ -14,21 +14,31 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.location.Location;
+import android.location.LocationRequest;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import android.Manifest;
+
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 
-import android.Manifest;
+
 
 public class SensorService extends Service implements SensorEventListener {
 
+    private FusedLocationProviderClient locationClient;
+    private LocationCallback locationCallback;
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
@@ -91,10 +101,25 @@ public class SensorService extends Service implements SensorEventListener {
         if (locationEnabled && (fineLocationPerm || coarseLocationPerm)) {
 
             // Load location client
-            FusedLocationProviderClient locationClient = LocationServices.getFusedLocationProviderClient(this);
+            locationClient = LocationServices.getFusedLocationProviderClient(this);
+            locationCallback = new LocationCallback() {
+                public void onLocationResult(@NonNull LocationResult locationResult) {
+                    for (Location location : locationResult.getLocations()) {
+                        Log.d("Location", String.valueOf(location));
+                    }
+                }
+            };
 
+            com.google.android.gms.location.LocationRequest locationRequest =
+                    com.google.android.gms.location.LocationRequest.create()
+                            .setPriority(com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY)
+                            .setInterval(5000); // 5 seconds
 
-            //locationClient.requestLocationUpdates().addOnSuccessListener()
+            locationClient.requestLocationUpdates(
+                    locationRequest,
+                    locationCallback,
+                    Looper.getMainLooper()
+            );
         }
     }
 
