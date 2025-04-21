@@ -9,6 +9,14 @@
     <string name="daily_steps">Daily Steps</string>
     <string name="location_coordinates">Location Coordinates</string>
     <string name="dashboardTitle">Dashboard</string>
+    <string name="distance">Distance</string>
+    <string name="empty">--</string>
+    <string name="latitude">Latitude</string>
+    <string name="longitude">Longitude</string>
+    <string name="enable_location_tracking_label">Enable Location Tracking</string>
+    <string name="step_history_label">Step History</string>
+    <string name="total_steps">Total Steps</string>
+    <string name="last_known_location">Last Known Location:</string>
 
     <string-array name="unit_list">
         <item>Miles</item>

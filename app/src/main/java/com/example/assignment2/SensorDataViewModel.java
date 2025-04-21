@@ -1,53 +1,65 @@
 package com.example.assignment2;
 
-import androidx.lifecycle.LiveData;
 import androidx.lifecycle.MutableLiveData;
 import androidx.lifecycle.ViewModel;
 
 public class SensorDataViewModel extends ViewModel {
 
-    private MutableLiveData<String> steps;
-    private MutableLiveData<String> longLoc;
-    private MutableLiveData<String> latLoc;
+    private MutableLiveData<Integer> steps;
+    private MutableLiveData<Double> distance;
+    private MutableLiveData<Double> longLoc;
+    private MutableLiveData<Double> latLoc;
 
-    // Getters
-    public MutableLiveData<String> getCurrentSteps() {
+    public MutableLiveData<Integer> getCurrentSteps() {
         if (steps == null) {
-            steps = new MutableLiveData<String>();
+            steps = new MutableLiveData<>();
         }
         return steps;
     }
 
-    public MutableLiveData<String> getCurrentLongLoc() {
+    public void setCurrentSteps(Integer value) {
+        if (steps == null) {
+            steps = new MutableLiveData<>();
+        }
+        steps.postValue(value);
+    }
+
+    public MutableLiveData<Double> getCurrentDistance() {
+        if (distance == null) {
+            distance = new MutableLiveData<>();
+        }
+        return distance;
+    }
+
+    public void setCurrentDistance(Double value) {
+        if (distance == null) {
+            distance = new MutableLiveData<>();
+        }
+        distance.postValue(value);
+    }
+
+    public MutableLiveData<Double> getCurrentLongLoc() {
         if (longLoc == null) {
-            longLoc = new MutableLiveData<String>();
+            longLoc = new MutableLiveData<>();
         }
         return longLoc;
     }
 
-    public MutableLiveData<String> getCurrentLatLoc() {
-        if (latLoc == null) {
-            latLoc = new MutableLiveData<String>();
-        }
-        return latLoc;
-    }
-
-    // Setters
-    public void setCurrentSteps(String value) {
-        if (steps == null) {
-            steps = new MutableLiveData<>();
-        }
-        steps.postValue(value); // or steps.setValue(value) if on the main thread
-    }
-
-    public void setCurrentLongLoc(String value) {
+    public void setCurrentLongLoc(Double value) {
         if (longLoc == null) {
             longLoc = new MutableLiveData<>();
         }
         longLoc.postValue(value);
     }
 
-    public void setCurrentLatLoc(String value) {
+    public MutableLiveData<Double> getCurrentLatLoc() {
+        if (latLoc == null) {
+            latLoc = new MutableLiveData<>();
+        }
+        return latLoc;
+    }
+
+    public void setCurrentLatLoc(Double value) {
         if (latLoc == null) {
             latLoc = new MutableLiveData<>();
         }

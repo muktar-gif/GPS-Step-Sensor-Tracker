@@ -3,39 +3,26 @@ package com.example.assignment2;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Bundle;
-import android.util.Log;
-import android.view.MenuItem;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
-
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
-import androidx.lifecycle.Observer;
-import androidx.lifecycle.ViewModelProvider;
 
-import com.example.assignment2.databinding.ActivityMainBinding;
-import com.google.android.material.bottomnavigation.BottomNavigationMenuView;
+
 import com.google.android.material.bottomnavigation.BottomNavigationView;
-import com.google.android.material.navigation.NavigationBarItemView;
-import com.google.android.material.navigation.NavigationBarView;
 
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 import android.Manifest;
 import android.widget.Toast;
@@ -46,8 +33,6 @@ public class MainActivity extends AppCompatActivity {
     DashboardFragment dashboardFrag = new DashboardFragment();
     HistoryFragment historyFrag = new HistoryFragment();
     SettingsFragment settingsFrag = new SettingsFragment();
-
-    private SensorDataViewModel sensorModel;
 
     private final ActivityResultLauncher<String[]> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
@@ -77,7 +62,14 @@ public class MainActivity extends AppCompatActivity {
                 editor.apply();
 
                 if (stepsPermissions || locationPermissions) {
-                    startService(new Intent(this, SensorService.class));
+                    Context context = getApplicationContext();
+                    Intent intent = new Intent(context, SensorService.class);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        context.startForegroundService(intent);
+                    }
+                    else {
+                        context.startService(intent);
+                    }
                 } else {
                     Toast.makeText(this, "Health Permission/Location Permission is required for tracking", Toast.LENGTH_LONG).show();
                 }
@@ -89,11 +81,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
-        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
-            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
-            v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
-            return insets;
-        });
 
         bottomNav = findViewById(R.id.bottomNavigationView);
 
@@ -113,22 +100,20 @@ public class MainActivity extends AppCompatActivity {
             return true;
         });
 
+        removeOldData();
+
         // Generates permissions based on build version
         List<String> permissionsList = getStrings();
         String[] permissions = permissionsList.toArray(new String[0]);
         requestPermissionLauncher.launch(permissions);
+    }
 
-
-        sensorModel = new ViewModelProvider(this).get(SensorDataViewModel.class);
-
-        final Observer<String> stepsObserver = new Observer<String>() {
-            @Override
-            public void onChanged(@Nullable final String newName) {
-                // Update the UI, in this case, a TextView.
-            }
-        };
-
-        sensorModel.getCurrentSteps().observe(this, stepsObserver);
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // Stop the foreground service
+        Intent stopIntent = new Intent(this, SensorService.class);
+        stopService(stopIntent);
     }
 
     @NonNull
@@ -155,4 +140,28 @@ public class MainActivity extends AppCompatActivity {
         fragmentTransaction.replace(R.id.frameContainer, fragment);
         fragmentTransaction.commit();
     }
+
+    private void removeOldData(){
+        ArrayList<StepData> loadStepData = Util.loadStepDataList(this);
+        ArrayList<LocationData> loadLocationData = Util.loadLocationDataList(this);
+
+        DateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
+
+        Calendar calendar = Calendar.getInstance();
+
+        // Gets date past 7 days
+        calendar.add(Calendar.DAY_OF_YEAR, -7);
+        String pastDate = formatDate.format(calendar.getTime());
+
+
+        loadStepData.removeIf(stepData ->
+                stepData.getDate().compareTo(pastDate) < 0);
+
+        loadLocationData.removeIf(locationData ->
+                locationData.getDate().compareTo(pastDate) < 0);
+
+        Util.saveStepDataList(this, loadStepData);
+        Util.saveLocationDataList(this, loadLocationData);
+    }
+
 }

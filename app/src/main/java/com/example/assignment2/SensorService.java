@@ -1,10 +1,8 @@
 package com.example.assignment2;
 
 import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
+
 import android.app.Service;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -14,53 +12,46 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+
 import android.location.Location;
-import android.location.LocationRequest;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
-import android.util.Log;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.Manifest;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.Granularity;
 import com.google.android.gms.location.LocationCallback;
+import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.Priority;
 
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.Locale;
 
 
 public class SensorService extends Service implements SensorEventListener {
 
-    private FusedLocationProviderClient locationClient;
-    private LocationCallback locationCallback;
-    private void createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel channel = new NotificationChannel(
-                    "my_channel", // Must match the channel ID in the builder
-                    "Activity Tracker",
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            NotificationManager manager = getSystemService(NotificationManager.class);
-            if (manager != null) {
-                manager.createNotificationChannel(channel);
-            }
-        }
-    }
+    SensorManager sensorManager;
+    FusedLocationProviderClient locationClient;
+    LocationCallback locationCallback;
 
+    private final double STEP_LENGTH_MILES = 0.0005;
 
     public SensorService() {
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-
-        createNotificationChannel();
 
         Notification notification = new NotificationCompat.Builder(this, "my_channel")
                 .setContentTitle("Activity Tracker Running")
@@ -75,6 +66,13 @@ public class SensorService extends Service implements SensorEventListener {
             startForeground(1, notification);
         }
 
+        // Load steps sensor
+        sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
+        Sensor steps = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR);
+
+        // Register listener
+        sensorManager.registerListener(this, steps, SensorManager.SENSOR_DELAY_NORMAL);
+
         return START_STICKY;
     }
 
@@ -82,44 +80,100 @@ public class SensorService extends Service implements SensorEventListener {
     public void onCreate() {
         super.onCreate();
 
-        // Load steps sensor
-        SensorManager sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
-        Sensor steps = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-
-        // Register listener
-        sensorManager.registerListener(this, steps, SensorManager.SENSOR_DELAY_NORMAL);
-
-        SharedPreferences sharedPref = getBaseContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
-
-        // Gets saved location settings, false is default
-        boolean locationEnabled = sharedPref.getBoolean("locationSaved", false);
         boolean fineLocationPerm = ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.ACCESS_FINE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED;
         boolean coarseLocationPerm = ContextCompat.checkSelfPermission(getBaseContext(), Manifest.permission.ACCESS_COARSE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED;
 
-        if (locationEnabled && (fineLocationPerm || coarseLocationPerm)) {
+        if (fineLocationPerm || coarseLocationPerm) {
 
-            // Load location client
-            locationClient = LocationServices.getFusedLocationProviderClient(this);
+            LocationRequest locationRequest = new LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000)
+                    .setGranularity(Granularity.GRANULARITY_FINE)
+                    .setMinUpdateDistanceMeters(2).build();
+
             locationCallback = new LocationCallback() {
                 public void onLocationResult(@NonNull LocationResult locationResult) {
-                    for (Location location : locationResult.getLocations()) {
-                        Log.d("Location", String.valueOf(location));
+
+                    SharedPreferences sharedPref = getBaseContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
+                    // Gets saved location settings, false is default
+                    boolean locationEnabled = sharedPref.getBoolean("locationSaved", false);
+
+                    if (!locationEnabled){
+                        return;
                     }
+
+                    Location location = locationResult.getLastLocation();
+
+                    double longLoc;
+                    double latLoc;
+
+                    if (location != null) {
+                        longLoc = location.getLongitude();
+                        latLoc = location.getLatitude();
+                    }
+                    else {
+                        return;
+                    }
+
+                    ArrayList<LocationData> loadData = Util.loadLocationDataList(getBaseContext());
+                    SimpleDateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                    String dateString = formatDate.format(new Date());
+
+                    LocationData getData = null;
+                    for (LocationData data : loadData) {
+                        if (data.getDate().equals(dateString)) {
+                            getData = data;
+                            break;
+                        }
+                    }
+
+                    if (getData == null){
+                        getData = new LocationData(dateString, longLoc, latLoc);
+                        loadData.add(getData);
+                    }
+                    else {
+                        getData.setLongLoc(longLoc);
+                        getData.setLatLoc(latLoc);
+                    }
+
+                    // Pass steps local broadcast
+                    Intent longIntent = new Intent("longBroad");
+                    longIntent.putExtra("longitude", getData.getLongLoc());
+
+                    // Send step info to context
+                    LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(longIntent);
+
+                    // Pass steps local broadcast
+                    Intent latIntent = new Intent("latBroad");
+                    latIntent.putExtra("latitude", getData.getLatLoc());
+
+                    // Send step info to context
+                    LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(latIntent);
+
+                    Util.saveLocationDataList(getBaseContext(), loadData);
                 }
             };
 
-            com.google.android.gms.location.LocationRequest locationRequest =
-                    com.google.android.gms.location.LocationRequest.create()
-                            .setPriority(com.google.android.gms.location.LocationRequest.PRIORITY_HIGH_ACCURACY)
-                            .setInterval(5000); // 5 seconds
-
+            // Load location client
+            locationClient = LocationServices.getFusedLocationProviderClient(this);
             locationClient.requestLocationUpdates(
                     locationRequest,
                     locationCallback,
                     Looper.getMainLooper()
             );
+
+        }
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (sensorManager != null) {
+            sensorManager.unregisterListener(this);
+        }
+
+        if (locationClient != null){
+            locationClient.removeLocationUpdates(locationCallback);
         }
     }
 
@@ -131,36 +185,51 @@ public class SensorService extends Service implements SensorEventListener {
     @Override
     public void onSensorChanged(SensorEvent sensorEvent) {
 
-        if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_COUNTER) {
-            int totalSteps = (int) sensorEvent.values[0];
-            int stepsSinceStart = totalSteps - 0; // initialStepCount is saved on service start
-            Log.d("StepService", "Steps taken: " + stepsSinceStart);
+        if (sensorEvent.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {
 
-            // If counter is less than stored then
-            // Add counter to stored - meaning the device/counter was rebooted
-            // Else
-            // Set stored equal to counter - device has not been reset and you can one to one account for steps
+            ArrayList<StepData> loadData = Util.loadStepDataList(getBaseContext());
+            SimpleDateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            String dateString = formatDate.format(new Date());
 
-            // Calculate distance based on data using the average stride length
-            // Use miles or km based on stored shared preference
+            StepData getData = null;
+            for (StepData data : loadData) {
+                if (data.getDate().equals(dateString)) {
+                    getData = data;
+                    break;
+                }
+            }
 
+            if (getData == null){
+                getData = new StepData(dateString, 1, STEP_LENGTH_MILES);
+                loadData.add(getData);
+            }
+            else {
+                int dataSteps = getData.getSteps() + 1;
+                getData.setSteps(dataSteps);
+                getData.setDistanceMiles(dataSteps * STEP_LENGTH_MILES);
+            }
+
+            // Pass steps local broadcast
+            Intent stepsIntent = new Intent("stepsBroad");
+            stepsIntent.putExtra("steps", getData.getSteps());
+
+            // Send step info to context
+            LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(stepsIntent);
+
+            // Pass distance local broadcast
+            Intent distanceIntent = new Intent("distanceBroad");
+            distanceIntent.putExtra("distance", getData.getDistanceMiles());
+
+            // Send step info to context
+            LocalBroadcastManager.getInstance(getBaseContext()).sendBroadcast(distanceIntent);
+
+            Util.saveStepDataList(getBaseContext(), loadData);
         }
-
-        //Track steps if health given
-        //Track location if location permission given
-
-        //Calculate distance
-
-        //Pass to live data
-
-
-        // Figure out how to store data for last 7 days -- make front end once figured out
-        // Json if the date/id does not exists create an empty one and add that to the json
-        // If it does exist add to it
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int i) {
 
     }
+
 }
