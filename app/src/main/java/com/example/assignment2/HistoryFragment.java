@@ -11,12 +11,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-
-import java.util.Date;
-import java.util.Locale;
 
 public class HistoryFragment extends Fragment {
 
@@ -40,18 +35,15 @@ public class HistoryFragment extends Fragment {
 
         ArrayList<HistoryData> historyList = new ArrayList<>();
 
-        DateFormat formatDate = new SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH);
-        String today = formatDate.format(new Date());
-
         // List of dates to account for step data and location data dates that don't include data
         ArrayList<String> getDates = new ArrayList<>();
         for (StepData data : loadStepData) {
-            if (!getDates.contains(data.getDate()) && !data.getDate().equals(today)) {
+            if (!getDates.contains(data.getDate())) {
                 getDates.add(data.getDate());
             }
         }
         for (LocationData data : loadLocationData) {
-            if (!getDates.contains(data.getDate()) && !data.getDate().equals(today)) {
+            if (!getDates.contains(data.getDate())) {
                 getDates.add(data.getDate());
             }
         }

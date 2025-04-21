@@ -10,6 +10,9 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 import androidx.fragment.app.FragmentTransaction;
@@ -53,13 +56,15 @@ public class MainActivity extends AppCompatActivity {
                 // Required for location
                 boolean locationPermissions = fineLocationPerm || coarseLocationPerm;
 
-                // Gets settings
-                SharedPreferences sharedPref = this.getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
+                if (!locationPermissions) {
+                    // Gets settings
+                    SharedPreferences sharedPref = this.getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
 
-                // Saves location permission to shared preferences for consistency
-                SharedPreferences.Editor editor = sharedPref.edit();
-                editor.putBoolean("locationSaved", locationPermissions);
-                editor.apply();
+                    // Saves location permission to shared preferences for consistency
+                    SharedPreferences.Editor editor = sharedPref.edit();
+                    editor.putBoolean("locationSaved", false);
+                    editor.apply();
+                }
 
                 if (stepsPermissions || locationPermissions) {
                     Context context = getApplicationContext();
@@ -81,6 +86,12 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            v.setPadding(systemBars.left, systemBars.top, systemBars.right, 0);
+            return insets;
+        });
 
         bottomNav = findViewById(R.id.bottomNavigationView);
 

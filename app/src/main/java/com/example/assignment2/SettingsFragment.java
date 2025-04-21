@@ -41,17 +41,18 @@ public class SettingsFragment extends Fragment {
             // Required for location
             boolean locationPermissions = fineLocationPerm || coarseLocationPerm;
 
-            if (!locationPermissions){
+            if (!locationPermissions) {
+                // Gets settings
+                SharedPreferences sharedPref = requireContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
+
+                // Saves location permission to shared preferences for consistency
+                SharedPreferences.Editor editor = sharedPref.edit();
+                editor.putBoolean("locationSaved", false);
+                editor.apply();
+
                 Toast.makeText(requireContext(), "Please allow location in app settings", Toast.LENGTH_LONG).show();
             }
 
-            // Gets settings
-            SharedPreferences sharedPref = requireContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
-
-            // Saves location permission to shared preferences for consistency
-            SharedPreferences.Editor editor = sharedPref.edit();
-            editor.putBoolean("locationSaved", locationPermissions);
-            editor.apply();
         });
 
     }
