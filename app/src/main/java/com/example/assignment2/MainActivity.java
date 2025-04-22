@@ -39,11 +39,11 @@ public class MainActivity extends AppCompatActivity {
 
     private final ActivityResultLauncher<String[]> requestPermissionLauncher =
             registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-                boolean healthPerm = Boolean.parseBoolean(null);
+                boolean healthPerm = false;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                     healthPerm = Boolean.TRUE.equals(result.getOrDefault(Manifest.permission.FOREGROUND_SERVICE_HEALTH, false));
                 }
-                boolean activityPerm = Boolean.parseBoolean(null);
+                boolean activityPerm = false;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     activityPerm = Boolean.TRUE.equals(result.getOrDefault(Manifest.permission.ACTIVITY_RECOGNITION, false));
                 }
@@ -51,22 +51,34 @@ public class MainActivity extends AppCompatActivity {
                 boolean coarseLocationPerm = Boolean.TRUE.equals(result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false));
 
                 // Required for TYPE_STEP_COUNTER
-                boolean stepsPermissions = healthPerm && activityPerm;
+                boolean stepsPermissions;
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    stepsPermissions = healthPerm && activityPerm;
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    stepsPermissions = activityPerm;
+                } else {
+                    stepsPermissions = true;
+                }
 
                 // Required for location
                 boolean locationPermissions = fineLocationPerm || coarseLocationPerm;
 
-                if (!locationPermissions) {
-                    // Gets settings
-                    SharedPreferences sharedPref = this.getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
+                SharedPreferences sharedPref = this.getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
+                SharedPreferences.Editor editor = sharedPref.edit();
 
-                    // Saves location permission to shared preferences for consistency
-                    SharedPreferences.Editor editor = sharedPref.edit();
-                    editor.putBoolean("locationSaved", false);
+                if (!sharedPref.contains("locationSaved")) {
+
+                    editor.putBoolean("locationSaved", true);
                     editor.apply();
-                }
 
-                if (stepsPermissions || locationPermissions) {
+                }
+                 else if (!locationPermissions){
+                     editor.putBoolean("locationSaved", false);
+                     editor.apply();
+                 }
+
+                if (stepsPermissions) {
                     Context context = getApplicationContext();
                     Intent intent = new Intent(context, SensorService.class);
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -75,9 +87,15 @@ public class MainActivity extends AppCompatActivity {
                     else {
                         context.startService(intent);
                     }
+                    if (!locationPermissions){
+                        Toast.makeText(this, "Location Permission is required for tracking", Toast.LENGTH_LONG).show();
+                    }
                 } else {
                     Toast.makeText(this, "Health Permission/Location Permission is required for tracking", Toast.LENGTH_LONG).show();
                 }
+
+                dashboardFrag = new DashboardFragment();
+                changeFrag(dashboardFrag);
             });
 
 
@@ -94,8 +112,6 @@ public class MainActivity extends AppCompatActivity {
         });
 
         bottomNav = findViewById(R.id.bottomNavigationView);
-
-        changeFrag(dashboardFrag);
 
         bottomNav.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();

@@ -2,6 +2,8 @@ package com.example.assignment2;
 
 import android.app.Notification;
 
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
@@ -52,6 +54,12 @@ public class SensorService extends Service implements SensorEventListener {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel("my_channel", "Activity Tracker", NotificationManager.IMPORTANCE_DEFAULT);
+            getSystemService(NotificationManager.class).createNotificationChannel(channel);
+        }
+
 
         Notification notification = new NotificationCompat.Builder(this, "my_channel")
                 .setContentTitle("Activity Tracker Running")

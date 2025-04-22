@@ -58,11 +58,19 @@ public class DashboardFragment extends Fragment {
         TextView distanceText = view.findViewById(R.id.distanceVal);
         TextView longText = view.findViewById(R.id.longVal);
         TextView latText = view.findViewById(R.id.latVal);
+        CardView locationCard = view.findViewById(R.id.locationCard);
+
 
         SharedPreferences sharedPref = requireContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
 
         // Gets saved location settings, false is default
         locationEnabled = sharedPref.getBoolean("locationSaved", false);
+
+        if (!locationEnabled) {
+            locationCard.setAlpha(0.3f);
+            longText.setText("--");
+            latText.setText("--");
+        }
 
         // Gets saved units, first item is default
         String[] units = getResources().getStringArray(R.array.unit_list);
@@ -107,7 +115,6 @@ public class DashboardFragment extends Fragment {
         if (getLocationData != null) {
 
             if (!locationEnabled) {
-                CardView locationCard = view.findViewById(R.id.locationCard);
                 locationCard.setAlpha(0.3f);
                 longText.setText("--");
                 latText.setText("--");

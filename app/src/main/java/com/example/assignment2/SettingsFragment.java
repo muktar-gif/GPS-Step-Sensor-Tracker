@@ -4,10 +4,9 @@ import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
@@ -23,8 +22,6 @@ import android.widget.Toast;
 
 public class SettingsFragment extends Fragment {
 
-    private ActivityResultLauncher<String[]> requestLocationLauncher;
-
     public SettingsFragment() {
         // Required empty public constructor
     }
@@ -32,29 +29,6 @@ public class SettingsFragment extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        requestLocationLauncher =
-        registerForActivityResult(new ActivityResultContracts.RequestMultiplePermissions(), result -> {
-            boolean fineLocationPerm = Boolean.TRUE.equals(result.getOrDefault(android.Manifest.permission.ACCESS_FINE_LOCATION, false));
-            boolean coarseLocationPerm = Boolean.TRUE.equals(result.getOrDefault(Manifest.permission.ACCESS_COARSE_LOCATION, false));
-
-            // Required for location
-            boolean locationPermissions = fineLocationPerm || coarseLocationPerm;
-
-            if (!locationPermissions) {
-                // Gets settings
-                SharedPreferences sharedPref = requireContext().getSharedPreferences("settingsPrefs", Context.MODE_PRIVATE);
-
-                // Saves location permission to shared preferences for consistency
-                SharedPreferences.Editor editor = sharedPref.edit();
-                editor.putBoolean("locationSaved", false);
-                editor.apply();
-
-                Toast.makeText(requireContext(), "Please allow location in app settings", Toast.LENGTH_LONG).show();
-            }
-
-        });
-
     }
 
     @Override
@@ -108,23 +82,49 @@ public class SettingsFragment extends Fragment {
 
         // Updates saved preference on change
         locationSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            SharedPreferences.Editor editor = sharedPref.edit();
-            editor.putBoolean("locationSaved", isChecked);
-            editor.apply();
+
+            boolean healthPerm = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                healthPerm = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.FOREGROUND_SERVICE_HEALTH) ==
+                        PackageManager.PERMISSION_GRANTED;
+            }
+            boolean activityPerm = false;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                activityPerm = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACTIVITY_RECOGNITION) ==
+                        PackageManager.PERMISSION_GRANTED;
+            }
 
             boolean fineLocationPerm = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_FINE_LOCATION) ==
                     PackageManager.PERMISSION_GRANTED;
             boolean coarseLocationPerm = ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.ACCESS_COARSE_LOCATION) ==
                     PackageManager.PERMISSION_GRANTED;
 
-            if (!(fineLocationPerm || coarseLocationPerm)){
-                // Generates permissions based on build version
-                String[] permissions = {
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                };
-                // Attempts to launch permissions if allowed by app
-                requestLocationLauncher.launch(permissions);
+            // Required for TYPE_STEP_COUNTER
+            boolean stepsPermissions;
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                stepsPermissions = healthPerm && activityPerm;
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                stepsPermissions = activityPerm;
+            } else {
+                stepsPermissions = true;
+            }
+
+            boolean locationPermissions = fineLocationPerm || coarseLocationPerm;
+
+            if (!stepsPermissions){
+                Toast.makeText(requireContext(), "Health and location permission is required for tracking, restart after", Toast.LENGTH_LONG).show();
+                locationSwitch.setChecked(false);
+            }
+            else if (!locationPermissions){
+                Toast.makeText(requireContext(), "Location permission is required for tracking, restart after", Toast.LENGTH_LONG).show();
+                locationSwitch.setChecked(false);
+
+            }
+            else {
+                SharedPreferences.Editor editor = sharedPref.edit();
+                editor.putBoolean("locationSaved", isChecked);
+                editor.apply();
             }
         });
 
