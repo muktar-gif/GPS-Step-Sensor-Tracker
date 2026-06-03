@@ -84,7 +84,7 @@ Plug in a physical Android device via USB or enable wireless debugging. A physic
 
 **4. Run the app**
 
-Click **Run ▶** or press `Shift + F10`.
+Click **Run** or press `Shift + F10`.
 
 **5. Grant permissions**
 
